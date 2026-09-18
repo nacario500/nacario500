@@ -10,6 +10,10 @@
   const nav = document.getElementById('nav');
   const navLinks = document.querySelectorAll('.nav-link, .mobile-menu a');
   const sections = document.querySelectorAll('main section[id]');
+  const dropdownButton = document.querySelector('#dropdownBtn');
+  const dropdownMenu = document.querySelector('#dropdownMenu');
+  const profileDropdown = document.getElementById('profileDropdown');
+  const profileIds = ['about', 'skills', 'journey'];
 
   const onScroll = () => {
     nav.classList.toggle('is-scrolled', window.scrollY > 12);
@@ -22,6 +26,16 @@
       const isMatch = link.dataset.nav === id;
       link.classList.toggle('active', isMatch);
     });
+    if (dropdownButton && profileDropdown) {
+      const isProfileActive = profileIds.includes(id);
+      dropdownButton.classList.toggle('active', isProfileActive);
+      profileDropdown.classList.toggle('is-profile-active', isProfileActive);
+    }
+    if (dropdownMenu) {
+      dropdownMenu.querySelectorAll('[data-nav]').forEach((link) => {
+        link.classList.toggle('active', link.dataset.nav === id);
+      });
+    }
   };
 
   if ('IntersectionObserver' in window) {
@@ -36,6 +50,85 @@
       { rootMargin: '-45% 0px -50% 0px', threshold: 0 }
     );
     sections.forEach((section) => navObserver.observe(section));
+  }
+
+  /* ============================================
+     PROFILE DROPDOWN (Vanilla JS Activity)
+     Required: querySelector + addEventListener + classList.toggle('show')
+  ============================================ */
+  const syncDropdownAccessibility = (isOpen) => {
+    if (!dropdownMenu || !dropdownButton || !profileDropdown) return;
+    dropdownMenu.hidden = !isOpen;
+    dropdownMenu.setAttribute('aria-hidden', String(!isOpen));
+    dropdownButton.setAttribute('aria-expanded', String(isOpen));
+    profileDropdown.classList.toggle('is-open', isOpen);
+    dropdownMenu.querySelectorAll('a').forEach((link) => {
+      if (isOpen) link.removeAttribute('tabindex');
+      else link.setAttribute('tabindex', '-1');
+    });
+  };
+
+  const closeDropdown = (returnFocus) => {
+    if (!dropdownMenu || !dropdownButton || !profileDropdown) return;
+    dropdownMenu.classList.remove('show');
+    syncDropdownAccessibility(false);
+    if (returnFocus) dropdownButton.focus();
+  };
+
+  if (dropdownButton && dropdownMenu && profileDropdown) {
+    // initial state: hidden and out of tab order
+    syncDropdownAccessibility(false);
+    dropdownMenu.setAttribute('role', 'menu');
+    dropdownMenu.querySelectorAll('a').forEach((link) => link.setAttribute('role', 'menuitem'));
+
+    dropdownButton.addEventListener('click', function (e) {
+      e.stopPropagation();
+      // required core toggle
+      dropdownMenu.classList.toggle('show');
+      const isOpen = dropdownMenu.classList.contains('show');
+      syncDropdownAccessibility(isOpen);
+    });
+
+    dropdownMenu.querySelectorAll('a').forEach((link) => {
+      link.addEventListener('click', () => {
+        closeDropdown(false);
+      });
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!dropdownMenu.classList.contains('show')) return;
+      if (!e.target.closest('#profileDropdown')) {
+        closeDropdown(false);
+      }
+    });
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && dropdownMenu.classList.contains('show')) {
+        e.preventDefault();
+        closeDropdown(true);
+      }
+    });
+
+    profileDropdown.addEventListener('focusout', (e) => {
+      window.setTimeout(() => {
+        if (!profileDropdown.contains(document.activeElement)) {
+          closeDropdown(false);
+        }
+      }, 0);
+    });
+
+    const mql = window.matchMedia('(max-width: 860px)');
+    const handleBreakpoint = () => {
+      if (mql.matches) closeDropdown(false);
+    };
+    if (typeof mql.addEventListener === 'function') {
+      mql.addEventListener('change', handleBreakpoint);
+    } else if (typeof mql.addListener === 'function') {
+      mql.addListener(handleBreakpoint);
+    }
+    window.addEventListener('resize', () => {
+      if (window.innerWidth <= 860) closeDropdown(false);
+    });
   }
 
   /* ============================================
@@ -56,6 +149,7 @@
     hamburger.classList.toggle('is-open', isOpen);
     hamburger.setAttribute('aria-expanded', String(isOpen));
     document.body.style.overflow = isOpen ? 'hidden' : '';
+    if (isOpen && typeof closeDropdown === 'function') closeDropdown(false);
   });
 
   mobileMenu.querySelectorAll('a').forEach((link) => {
